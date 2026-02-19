@@ -605,7 +605,491 @@ Submit a **proposal** for building this system using GenAI (OpenAI/Gemini) for �
 
 ### Your Solution for problem 3:
 
-You need to put your solution here.
+## Smart DOCX Template → Bulk DOCX/PDF Generator: System Proposal
+
+### Executive Summary
+
+This proposal outlines a practical system that transforms ordinary Word documents into reusable templates using GenAI for intelligent field detection. The system supports both single-document generation via form UI and bulk generation via Excel/Google Sheets, with robust error handling and predictable file naming.
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    DOCX TEMPLATE GENERATOR - SYSTEM ARCHITECTURE                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐     ┌────────────┐
+│   DOCX Upload  │────▶│  Field         │────▶│  Schema        │────▶│  Template  │
+│   (User Input) │     │  Detection     │     │  Generation    │     │  Storage   │
+└────────────────┘     │  (GPT-4)       │     │  (JSON Schema) │     │  (DB)      │
+                       └────────────────┘     └────────────────┘     └────────────┘
+                                                      │
+                       ┌──────────────────────────────┼──────────────────────────────┐
+                       │                              │                              │
+                       ▼                              ▼                              ▼
+              ┌────────────────┐             ┌────────────────┐             ┌────────────┐
+              │  Single Gen    │             │  Bulk Gen      │             │  Download  │
+              │  (Form UI)     │             │  (Excel/Sheets)│             │  Package   │
+              └────────────────┘             └────────────────┘             └────────────┘
+                       │                              │
+                       ▼                              ▼
+              ┌────────────────┐             ┌────────────────┐
+              │  DOCX/PDF      │             │  ZIP Bundle    │
+              │  Generation    │             │  + Report      │
+              │  (python-docx  │             │  Generation    │
+              │   + reportlab) │             │                │
+              └────────────────┘             └────────────────┘
+```
+
+---
+
+## Component 1: Template Field Detection (GenAI-Powered)
+
+### Purpose
+Automatically identify editable fields in an uploaded DOCX file (names, dates, amounts, addresses, etc.)
+
+### Process Flow
+
+```
+DOCX File → Text Extraction → GPT-4 Analysis → Field Suggestions → User Confirmation
+```
+
+### Field Detection Prompt
+
+```
+SYSTEM PROMPT:
+You are a document template analyst. Your task is to analyze document text and identify all fields that appear to be variable/placeholder content suitable for templating.
+
+INPUT: Raw text extracted from a Word document
+
+OUTPUT: JSON schema of detected fields
+
+FIELD TYPES TO DETECT:
+- text: Names, addresses, company names, titles
+- date: Dates in various formats
+- number: Quantities, ages, counts
+- currency: Money amounts, salaries, prices
+- email: Email addresses
+- phone: Phone numbers
+- select: Fields with limited options (e.g., Mr/Mrs/Ms, Yes/No)
+
+DETECTION RULES:
+1. Look for patterns like [Name], {{name}}, <<NAME>>, or obvious placeholders
+2. Identify context-based variables (e.g., "Dear ______" suggests a name field)
+3. Detect repeated patterns that change per document
+4. Preserve surrounding context for each field
+5. Suggest field names in snake_case format
+
+OUTPUT FORMAT:
+{
+  "template_name": "suggested_template_name",
+  "fields": [
+    {
+      "field_id": "candidate_name",
+      "field_type": "text",
+      "original_text": "John Doe",
+      "context": "Dear Mr./Ms. ______,",
+      "position_hint": "Appears in greeting section",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 100
+      },
+      "suggested_label": "Candidate Name"
+    }
+  ],
+  "document_type": "offer_letter",
+  "confidence_score": 0.92
+}
+
+Analyze the following document text and output the field schema:
+```
+
+### Example Field Detection
+
+**Input Document (Offer Letter):**
+```
+OFFER LETTER
+
+Date: January 15, 2025
+
+Dear John Doe,
+
+We are pleased to offer you the position of Software Engineer at TechCorp Inc. 
+Your starting salary will be ₹12,00,000 per annum.
+You will report to Rajesh Kumar on your start date of February 1, 2025.
+Your work location will be our Bangalore office at 123 Tech Park, Koramangala.
+
+Please sign and return this letter by January 20, 2025.
+
+Sincerely,
+Priya Sharma
+HR Manager
+```
+
+**Output Schema:**
+```json
+{
+  "template_name": "offer_letter",
+  "fields": [
+    {
+      "field_id": "letter_date",
+      "field_type": "date",
+      "original_text": "January 15, 2025",
+      "context": "Date: ______",
+      "position_hint": "Top of document",
+      "required": true,
+      "validation": {"format": "YYYY-MM-DD"},
+      "suggested_label": "Letter Date"
+    },
+    {
+      "field_id": "candidate_name",
+      "field_type": "text",
+      "original_text": "John Doe",
+      "context": "Dear ______,",
+      "position_hint": "Greeting line",
+      "required": true,
+      "validation": {"min_length": 2, "max_length": 100},
+      "suggested_label": "Candidate Name"
+    },
+    {
+      "field_id": "position",
+      "field_type": "text",
+      "original_text": "Software Engineer",
+      "context": "position of ______ at",
+      "position_hint": "First paragraph",
+      "required": true,
+      "validation": {},
+      "suggested_label": "Position/Role"
+    },
+    {
+      "field_id": "company_name",
+      "field_type": "text",
+      "original_text": "TechCorp Inc.",
+      "context": "at ______",
+      "position_hint": "First paragraph",
+      "required": true,
+      "validation": {},
+      "suggested_label": "Company Name"
+    },
+    {
+      "field_id": "salary",
+      "field_type": "currency",
+      "original_text": "₹12,00,000",
+      "context": "salary will be ______ per annum",
+      "position_hint": "First paragraph",
+      "required": true,
+      "validation": {"currency": "INR"},
+      "suggested_label": "Annual Salary"
+    },
+    {
+      "field_id": "reporting_manager",
+      "field_type": "text",
+      "original_text": "Rajesh Kumar",
+      "context": "report to ______ on",
+      "position_hint": "Second paragraph",
+      "required": true,
+      "validation": {},
+      "suggested_label": "Reporting Manager"
+    },
+    {
+      "field_id": "start_date",
+      "field_type": "date",
+      "original_text": "February 1, 2025",
+      "context": "start date of ______",
+      "position_hint": "Second paragraph",
+      "required": true,
+      "validation": {"format": "YYYY-MM-DD"},
+      "suggested_label": "Start Date"
+    },
+    {
+      "field_id": "work_location",
+      "field_type": "text",
+      "original_text": "Bangalore office at 123 Tech Park, Koramangala",
+      "context": "location will be ______",
+      "position_hint": "Second paragraph",
+      "required": true,
+      "validation": {},
+      "suggested_label": "Work Location"
+    },
+    {
+      "field_id": "response_deadline",
+      "field_type": "date",
+      "original_text": "January 20, 2025",
+      "context": "by ______",
+      "position_hint": "Third paragraph",
+      "required": true,
+      "validation": {"format": "YYYY-MM-DD"},
+      "suggested_label": "Response Deadline"
+    },
+    {
+      "field_id": "hr_name",
+      "field_type": "text",
+      "original_text": "Priya Sharma",
+      "context": "Sincerely,\\n______\\nHR Manager",
+      "position_hint": "Signature block",
+      "required": true,
+      "validation": {},
+      "suggested_label": "HR Name"
+    }
+  ],
+  "document_type": "offer_letter",
+  "confidence_score": 0.95
+}
+```
+
+---
+
+## Component 2: Template Storage Schema
+
+### Database Model
+
+```json
+{
+  "template_id": "tpl_abc123",
+  "template_name": "offer_letter_v1",
+  "created_at": "2025-01-15T10:30:00Z",
+  "created_by": "user_xyz",
+  "original_docx_path": "/storage/originals/tpl_abc123.docx",
+  "field_schema": {
+    "fields": [...],
+    "version": "1.0"
+  },
+  "user_modifications": {
+    "fields_added": [],
+    "fields_removed": [],
+    "field_renames": {}
+  },
+  "usage_stats": {
+    "times_used": 0,
+    "last_used": null
+  }
+}
+```
+
+---
+
+## Component 3: Single Document Generation
+
+### Workflow
+
+```
+1. User selects template from saved templates
+2. System renders form based on field schema
+3. User fills form fields
+4. System validates input
+5. System generates DOCX using python-docx
+6. System optionally converts to PDF using reportlab
+7. User downloads file(s)
+```
+
+### Form Generation Logic
+
+| Field Type | Form Input | Validation |
+|------------|------------|------------|
+| `text` | Text input | Min/max length |
+| `date` | Date picker | Valid date format |
+| `number` | Number input | Min/max range |
+| `currency` | Number + currency selector | Positive value |
+| `email` | Email input | Email regex |
+| `phone` | Tel input | Phone format |
+| `select` | Dropdown | Predefined options |
+
+---
+
+## Component 4: Bulk Document Generation
+
+### Workflow
+
+```
+1. User selects template
+2. System generates Excel template with column headers matching field_ids
+3. User downloads Excel, fills multiple rows
+4. User uploads filled Excel (or connects Google Sheet)
+5. System validates all rows
+6. System generates documents in parallel
+7. System creates ZIP bundle + generation report
+8. User downloads package
+```
+
+### Excel Template Format
+
+| candidate_name | position | salary | start_date | work_location | ... |
+|----------------|----------|--------|------------|---------------|-----|
+| Rahul Verma | Frontend Developer | ₹10,00,000 | 2025-02-15 | Mumbai Office | ... |
+| Sneha Patel | Backend Developer | ₹14,00,000 | 2025-02-20 | Bangalore Office | ... |
+| Amit Singh | Data Analyst | ₹8,00,000 | 2025-03-01 | Delhi Office | ... |
+
+### File Naming Convention
+
+```
+Format: {primary_field}_{template_name}_{date}.{ext}
+
+Examples:
+- Rahul_Verma_offer_letter_2025-01-15.pdf
+- Sneha_Patel_offer_letter_2025-01-15.pdf
+- INV-2025-001_invoice_2025-01-15.docx
+```
+
+### Bulk Generation Report
+
+```json
+{
+  "job_id": "job_xyz789",
+  "template_name": "offer_letter_v1",
+  "total_rows": 100,
+  "successful": 97,
+  "failed": 3,
+  "started_at": "2025-01-15T10:00:00Z",
+  "completed_at": "2025-01-15T10:05:32Z",
+  "output_files": {
+    "zip_path": "/output/jobs/job_xyz789/bundle.zip",
+    "pdf_folder": "/output/jobs/job_xyz789/pdfs/",
+    "docx_folder": "/output/jobs/job_xyz789/docxs/"
+  },
+  "errors": [
+    {
+      "row_number": 23,
+      "field": "start_date",
+      "error": "Invalid date format: 'Feb 30, 2025'",
+      "suggestion": "Use YYYY-MM-DD format"
+    },
+    {
+      "row_number": 56,
+      "field": "salary",
+      "error": "Currency value cannot be negative",
+      "suggestion": "Enter positive salary value"
+    },
+    {
+      "row_number": 89,
+      "field": "candidate_name",
+      "error": "Required field is empty",
+      "suggestion": "Enter candidate name"
+    }
+  ],
+  "summary": {
+    "documents_generated": 97,
+    "total_pages": 194,
+    "total_size_mb": 12.4
+  }
+}
+```
+
+---
+
+## Component 5: Error Handling Strategy
+
+### Validation Layers
+
+| Layer | When | What | Action |
+|-------|------|------|--------|
+| **Pre-generation** | Before processing | Field completeness, format validation | Reject with clear error message |
+| **Row-level** | During bulk processing | Per-row validation | Skip row, log error, continue |
+| **Document-level** | During generation | DOCX structure integrity | Retry with fallback |
+| **Output-level** | After generation | File size, corruption check | Regenerate if failed |
+
+### Error Categories
+
+| Error Type | Example | User Message | Recovery |
+|------------|---------|--------------|----------|
+| **Missing Required Field** | Empty `candidate_name` | "Row 5: Candidate Name is required" | Highlight in Excel |
+| **Invalid Format** | Wrong date format | "Row 12: Date should be YYYY-MM-DD" | Show expected format |
+| **Type Mismatch** | Text in currency field | "Row 8: Salary must be a number" | Suggest correction |
+| **Constraint Violation** | Negative salary | "Row 20: Salary cannot be negative" | Show valid range |
+| **Template Corrupted** | Original DOCX damaged | "Template file is corrupted. Please re-upload." | Request re-upload |
+
+### Partial Success Handling
+
+For bulk jobs with mixed success/failure:
+1. Generate all valid documents
+2. Create detailed error report
+3. Provide "Retry Failed Rows" option
+4. Download only failed rows as new Excel for correction
+
+---
+
+## Component 6: Technology Stack
+
+### Backend (Python)
+
+| Component | Library | Purpose |
+|-----------|---------|---------|
+| **DOCX Manipulation** | `python-docx` | Read/write Word documents, preserve formatting |
+| **PDF Generation** | `reportlab` + `docx2pdf` | Convert DOCX to PDF |
+| **Excel Processing** | `openpyxl` + `pandas` | Read/write Excel files |
+| **Google Sheets** | `gspread` | API integration with Google Sheets |
+| **GenAI Integration** | `openai` SDK | Field detection via GPT-4 |
+| **File Storage** | Local filesystem or S3 | Store templates and outputs |
+| **Job Queue** | `Celery` + `Redis` | Async bulk processing |
+
+### Frontend
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Form Builder** | React + Formik | Dynamic form generation from schema |
+| **File Upload** | react-dropzone | DOCX/Excel upload |
+| **Preview** | react-file-viewer | Document preview before download |
+| **Progress Tracking** | WebSocket | Real-time bulk job progress |
+
+---
+
+## Component 7: Security Considerations
+
+| Concern | Mitigation |
+|---------|------------|
+| **Document Privacy** | Encrypt stored files; auto-delete after configurable period |
+| **Sheet Access** | OAuth for Google Sheets; scoped permissions |
+| **API Security** | Rate limiting; API key rotation |
+| **Input Validation** | Sanitize all inputs; prevent injection attacks |
+| **Audit Trail** | Log all generation requests with user ID and timestamp |
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Core Template System (Week 1-2)
+- DOCX upload and text extraction
+- GPT-4 field detection integration
+- Field schema storage
+- Basic template management API
+
+### Phase 2: Single Generation (Week 3)
+- Dynamic form generation from schema
+- python-docx template filling
+- PDF conversion pipeline
+- Download functionality
+
+### Phase 3: Bulk Generation (Week 4-5)
+- Excel template generation
+- Bulk upload and validation
+- Parallel document generation
+- ZIP bundling and report generation
+
+### Phase 4: Polish & Edge Cases (Week 6)
+- Google Sheets integration
+- Retry failed rows
+- Progress tracking UI
+- Error recovery improvements
+
+---
+
+## Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| **Field Detection Accuracy** | >90% fields correctly identified |
+| **Single Generation Time** | <3 seconds per document |
+| **Bulk Generation Speed** | >100 documents/minute |
+| **Error Rate** | <2% for valid inputs |
+| **User Satisfaction** | Template creation <5 minutes |
+
+---
+
+## Summary
+
+This system leverages GenAI (GPT-4) to automatically detect template fields, eliminating manual field marking. The JSON schema approach ensures flexibility for various document types. Bulk processing with comprehensive error handling and reporting makes it production-ready for enterprise use cases like HR offer letters, invoice generation, and certificate creation.
 
 ## Problem 4: Architecture Proposal for 5-Min Character Video Series Generator
 
