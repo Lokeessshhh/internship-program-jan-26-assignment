@@ -1101,4 +1101,507 @@ Create a **small, clear architecture proposal** (no code, no prompts) describing
 
 ### Your Solution for problem 4:
 
-You need to put your solution here.
+## Character-Based Short Video Series Generator: Architecture Proposal
+
+### Executive Summary
+
+This architecture proposal describes a modular system for generating consistent 5-minute video episodes using predefined characters. The system maintains character consistency across episodes through a "Series Bible" and leverages modern AI tools (Runway/Pika for visuals, ElevenLabs for audio) to produce production-ready episode packages.
+
+---
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│              CHARACTER VIDEO SERIES GENERATOR - SYSTEM ARCHITECTURE                 │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                    INPUT LAYER                                      │
+├──────────────────────┬──────────────────────┬───────────────────────────────────────┤
+│   Series Bible       │   Episode Request    │   Output Preferences                  │
+│   (One-time setup)   │   (Per episode)      │   (Format, duration, style)           │
+└──────────────────────┴──────────────────────┴───────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              ORCHESTRATION LAYER                                    │
+├──────────────────────────────────────────────────────────────────────────────────────┤
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐       │
+│  │ Story Engine   │─▶│ Script         │─▶│ Scene          │─▶│ Asset          │       │
+│  │ (GPT-4)        │  │ Generator      │  │ Planner        │  │ Orchestrator   │       │
+│  └────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘       │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              GENERATION LAYER                                       │
+├──────────────────────┬──────────────────────┬──────────────────────┬────────────────┤
+│   Visual Generator   │   Audio Generator    │   Duration Controller│   Consistency   │
+│   (Runway/Pika)     │   (ElevenLabs)      │   (Timing Engine)    │   Manager       │
+└──────────────────────┴──────────────────────┴──────────────────────┴────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              OUTPUT LAYER                                           │
+├──────────────────────┬──────────────────────┬───────────────────────────────────────┤
+│   Episode Package    │   Final Video        │   Iteration Support                   │
+│   (Script + Assets)  │   (Rendered MP4)     │   (Edit + Regenerate)                 │
+└──────────────────────┴──────────────────────┴───────────────────────────────────────┘
+```
+
+---
+
+## Core Components
+
+### 1. Series Bible Manager
+
+**Purpose:** Store and manage all character definitions, relationships, and world-building data.
+
+**Data Model:**
+
+```
+SERIES BIBLE
+├── series_id
+├── series_name
+├── world_settings
+│   ├── location
+│   ├── time_period
+│   ├── tone
+│   └── recurring_themes
+├── characters[]
+│   ├── character_id
+│   ├── name
+│   ├── visual_profile
+│   │   ├── reference_images[]
+│   │   ├── physical_description
+│   │   ├── typical_clothing
+│   │   ├── color_palette
+│   │   └── age_appearance
+│   ├── personality
+│   │   ├── traits[]
+│   │   ├── speaking_style
+│   │   ├── catchphrases
+│   │   └── behavioral_rules
+│   └── voice_profile
+│       ├── voice_id (ElevenLabs)
+│       ├── pitch
+│       ├── speed
+│       └── emotion_range
+├── relationships[]
+│   ├── character_1_id
+│   ├── character_2_id
+│   ├── relationship_type
+│   └── interaction_rules
+└── style_guidelines
+    ├── visual_style
+    ├── narration_ratio
+    └── content_rating
+```
+
+**Character Consistency Strategy:**
+
+| Aspect | Consistency Mechanism |
+|--------|----------------------|
+| **Visual Identity** | Reference image embeddings stored; used for image generation prompts |
+| **Voice** | Fixed ElevenLabs voice_id per character |
+| **Personality** | Trait embeddings injected into all script generation |
+| **Relationships** | Interaction rules enforced during dialogue generation |
+
+---
+
+### 2. Episode Generation Pipeline
+
+**Step-by-Step Flow:**
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  EPISODE    │     │  STORY      │     │  SCRIPT     │     │  SCENE      │
+│  REQUEST    │────▶│  EXPANSION  │────▶│  GENERATION │────▶│  BREAKDOWN  │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+      │                   │                   │                   │
+      ▼                   ▼                   ▼                   ▼
+  User Input:        GPT-4 expands       Scene-by-scene       Timing +
+  - Situation        story into          dialogue +           shot list
+  - Characters       narrative           narration            per scene
+  - Tone             structure
+  - Goal
+
+                          │
+                          ▼
+              ┌─────────────────────┐
+              │  DURATION CONTROL   │
+              │  Target: ~5 minutes │
+              │  - Scene count: 8-12│
+              │  - Avg scene: 25-40s│
+              └─────────────────────┘
+```
+
+**Duration Control Mechanism:**
+
+| Target | 5 minutes (300 seconds) |
+|--------|-------------------------|
+| **Opening** | 15-20 seconds |
+| **Main Content** | 240-260 seconds |
+| **Closing** | 20-25 seconds |
+| **Scene Count** | 8-12 scenes |
+| **Dialogue Pacing** | ~150 words/minute |
+
+**Scene Structure Template:**
+
+```
+SCENE {
+  scene_id: "scene_001",
+  scene_type: "dialogue" | "narration" | "action",
+  characters_present: ["char_1", "char_2"],
+  location: "living_room",
+  duration_seconds: 35,
+  dialogue_lines: [...],
+  narration: "...",
+  visual_prompt: "...",
+  camera_angle: "medium_shot",
+  background_music: "upbeat"
+}
+```
+
+---
+
+### 3. Visual Asset Generation
+
+**Architecture:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                     VISUAL GENERATION PIPELINE                      │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│  Character     │     │  Scene         │     │  Image/Video   │
+│  Reference     │────▶│  Prompt        │────▶│  Generator     │
+│  Images        │     │  Builder       │     │  (Runway/Pika) │
+└────────────────┘     └────────────────┘     └────────────────┘
+                              │                       │
+                              ▼                       ▼
+                       ┌────────────────┐     ┌────────────────┐
+                       │  Consistency   │     │  Output        │
+                       │  Injection     │     │  Validation    │
+                       └────────────────┘     └────────────────┘
+```
+
+**Visual Prompt Construction:**
+
+```
+BASE_PROMPT = character_visual_profile + scene_context + style_guidelines
+
+Example:
+"[Character: Maya, 28, professional woman, dark hair, blue blouse, 
+confident expression] [Scene: Modern office, morning light through 
+windows] [Action: Looking at laptop screen, slight smile] [Style: 
+Cinematic, warm colors, medium shot] [Consistency: Reference image #3]"
+```
+
+**Tool Integration:**
+
+| Tool | Use Case | Output |
+|------|----------|--------|
+| **Runway Gen-3** | High-quality character shots | 4-6 second clips |
+| **Pika Labs** | Quick scene variations | 3-4 second clips |
+| **Midjourney** | Static backgrounds/keyframes | PNG images |
+| **D-ID** | Talking head animations | Lip-synced video |
+
+**Character Consistency Techniques:**
+
+1. **Reference Image Seeding:** Use same seed image across all generations
+2. **LoRA Fine-tuning:** Train lightweight adapter for each character
+3. **IP-Adapter:** Use image prompts instead of text for character consistency
+4. **Face Swap Post-processing:** Apply consistent face overlay if needed
+
+---
+
+### 4. Audio Generation Pipeline
+
+**Architecture:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                      AUDIO GENERATION PIPELINE                      │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│  Script        │     │  Voice         │     │  Audio         │
+│  Segments      │────▶│  Synthesis     │────▶│  Assembly      │
+│  (per line)    │     │  (ElevenLabs)  │     │  (FFmpeg)      │
+└────────────────┘     └────────────────┘     └────────────────┘
+                              │
+                              ▼
+                       ┌────────────────┐
+                       │  Character     │
+                       │  Voice Mapping │
+                       └────────────────┘
+```
+
+**Voice Configuration:**
+
+```
+CHARACTER_VOICE {
+  character_id: "maya",
+  elevenlabs_voice_id: "voice_abc123",
+  voice_settings: {
+    stability: 0.7,
+    similarity_boost: 0.8,
+    style: "conversational",
+    use_speaker_boost: true
+  },
+  emotion_presets: {
+    happy: {style_exaggeration: 0.3},
+    serious: {style_exaggeration: 0.1},
+    excited: {style_exaggeration: 0.5}
+  }
+}
+```
+
+**Audio Components:**
+
+| Component | Source | Duration Handling |
+|-----------|--------|-------------------|
+| **Dialogue** | ElevenLabs per-character voices | Variable (script-dependent) |
+| **Narration** | Single narrator voice | Bridges scenes |
+| **Background Music** | Royalty-free library / AI-generated | Looped, faded per scene |
+| **Sound Effects** | Sound library | Triggered by scene events |
+
+---
+
+### 5. Assembly & Rendering Engine
+
+**Final Video Assembly:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                     VIDEO ASSEMBLY PIPELINE                         │
+└────────────────────────────────────────────────────────────────────┘
+
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Visual     │     │  Audio      │     │  Timing     │     │  Final      │
+│  Clips      │────▶│  Tracks     │────▶│  Sync       │────▶│  Render     │
+│  (per scene)│     │  (dialogue+ │     │  (align to  │     │  (FFmpeg)   │
+└─────────────┘     │  music+sfx) │     │  script)    │     └─────────────┘
+                    └─────────────┘     └─────────────┘
+```
+
+**Rendering Configuration:**
+
+| Parameter | Options |
+|-----------|---------|
+| **Resolution** | 1080p (1920x1080) or 720p for 9:16 mobile |
+| **Aspect Ratio** | 16:9 (landscape) or 9:16 (vertical/Reels) |
+| **Frame Rate** | 30 fps |
+| **Codec** | H.264 for compatibility |
+| **Audio** | AAC 192kbps |
+
+---
+
+## Data Models
+
+### Episode Package Structure
+
+```
+EPISODE_PACKAGE/
+├── episode_meta.json
+│   ├── episode_id
+│   ├── episode_number
+│   ├── title
+│   ├── duration_seconds
+│   ├── characters_featured[]
+│   └── generation_timestamp
+├── script.md
+│   ├── scene_breakdown
+│   ├── full_dialogue
+│   └── narration_text
+├── storyboard.json
+│   ├── scenes[]
+│   │   ├── scene_id
+│   │   ├── duration
+│   │   ├── shot_type
+│   │   └── visual_description
+├── assets/
+│   ├── visuals/
+│   │   ├── scene_001.mp4
+│   │   ├── scene_002.mp4
+│   │   └── ...
+│   ├── audio/
+│   │   ├── dialogue/
+│   │   │   ├── char_1_scene_1.wav
+│   │   │   └── ...
+│   │   ├── music/
+│   │   │   └── background.mp3
+│   │   └── sfx/
+│   └── references/
+│       └── character_refs/
+├── final_video.mp4
+└── generation_report.json
+    ├── scenes_generated
+    ├── total_duration
+    ├── consistency_score
+    └── issues_detected[]
+```
+
+---
+
+## Iteration & Editing Support
+
+**User Iteration Workflow:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                     ITERATION WORKFLOW                              │
+└────────────────────────────────────────────────────────────────────┘
+
+1. REVIEW
+   └── User watches generated episode
+
+2. IDENTIFY CHANGES
+   ├── Edit dialogue line
+   ├── Change scene visual
+   ├── Adjust timing
+   ├── Swap character expression
+   └── Modify background music
+
+3. TARGETED REGENERATION
+   ├── Only affected scenes regenerated
+   ├── Unchanged assets reused
+   └── Partial re-assembly
+
+4. COMPARE & APPROVE
+   ├── Side-by-side comparison
+   └── Final approval
+```
+
+**Supported Edit Operations:**
+
+| Edit Type | Regeneration Scope | Time Impact |
+|-----------|-------------------|-------------|
+| **Dialogue change** | Single audio file | ~30 seconds |
+| **Scene visual change** | Single video clip | ~2 minutes |
+| **Character swap** | All scenes with character | ~5-10 minutes |
+| **Story modification** | Script + affected scenes | ~10-15 minutes |
+| **Style change** | All visuals | ~15-20 minutes |
+
+---
+
+## Technology Stack
+
+### Backend Services
+
+| Service | Technology | Purpose |
+|---------|------------|---------|
+| **API Layer** | FastAPI / Node.js | REST endpoints |
+| **Orchestration** | Temporal / Celery | Workflow management |
+| **Database** | PostgreSQL + Redis | Series bible, caching |
+| **File Storage** | S3 / GCS | Asset storage |
+| **Queue** | Redis + Bull | Job queue |
+
+### AI/ML Services
+
+| Service | Provider | Use Case |
+|---------|----------|----------|
+| **Script Generation** | OpenAI GPT-4 | Story, dialogue, narration |
+| **Image Generation** | Midjourney API / DALL-E 3 | Backgrounds, keyframes |
+| **Video Generation** | Runway Gen-3 / Pika | Character shots, scenes |
+| **Voice Synthesis** | ElevenLabs | Character voices |
+| **Music Generation** | Suno / Udio | Background music (optional) |
+
+### Infrastructure
+
+| Component | Technology |
+|-----------|------------|
+| **Compute** | AWS EC2 / GCP Compute |
+| **GPU** | NVIDIA T4 / A10G for local inference |
+| **CDN** | CloudFlare / CloudFront |
+| **Monitoring** | Prometheus + Grafana |
+
+---
+
+## Scalability Considerations
+
+### Episode Generation Time
+
+| Phase | Estimated Time |
+|-------|----------------|
+| Script Generation | 30-60 seconds |
+| Visual Generation (8-12 scenes) | 8-15 minutes |
+| Audio Generation | 2-4 minutes |
+| Assembly & Rendering | 2-3 minutes |
+| **Total** | **12-25 minutes** |
+
+### Parallelization Opportunities
+
+| Task | Parallelizable? | Speedup |
+|------|-----------------|---------|
+| Scene visual generation | ✅ Yes | 3-4x with parallel API calls |
+| Voice synthesis per line | ✅ Yes | 2x with concurrent requests |
+| Script generation | ❌ Sequential | - |
+| Final rendering | ❌ Sequential | - |
+
+---
+
+## Quality Assurance
+
+### Consistency Checks
+
+| Check | Method | Threshold |
+|-------|--------|-----------|
+| **Character Visual Consistency** | CLIP embedding similarity | >0.85 |
+| **Voice Consistency** | Speaker verification | >0.90 |
+| **Duration Target** | Time calculation | 280-320 seconds |
+| **Scene Count** | Script analysis | 8-12 scenes |
+| **Relationship Rules** | Dialogue context check | No violations |
+
+### Output Validation
+
+```
+VALIDATION_PIPELINE:
+1. Duration check (target: 5 min ± 30 sec)
+2. Character presence verification
+3. Dialogue-personality alignment check
+4. Visual consistency scoring
+5. Audio quality check
+6. Final render integrity check
+```
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Foundation (Week 1-2)
+- Series Bible data model and storage
+- Basic script generation with GPT-4
+- Character voice setup in ElevenLabs
+
+### Phase 2: Visual Pipeline (Week 3-4)
+- Runway/Pika integration
+- Character consistency testing
+- Scene prompt engineering
+
+### Phase 3: Audio & Assembly (Week 5-6)
+- Voice synthesis pipeline
+- Background music integration
+- FFmpeg assembly automation
+
+### Phase 4: Polish & Iteration (Week 7-8)
+- Edit and regenerate features
+- Quality scoring system
+- User feedback integration
+
+---
+
+## Summary
+
+This architecture enables consistent, repeatable generation of 5-minute character video episodes through:
+
+1. **Series Bible** - Single source of truth for characters, relationships, and style
+2. **Modular Pipeline** - Script → Scenes → Visuals → Audio → Assembly
+3. **Modern AI Tools** - Runway/Pika for video, ElevenLabs for voice
+4. **Consistency Mechanisms** - Reference seeding, voice locking, trait enforcement
+5. **Iteration Support** - Targeted regeneration without full recomputation
+
+The system balances quality with practicality, leveraging best-in-class AI services while maintaining the flexibility to swap components as technology evolves.
