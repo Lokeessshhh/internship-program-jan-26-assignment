@@ -336,7 +336,258 @@ Design a **single zero-shot prompt** that takes a user’s persona configuration
 
 ### Your Solution for problem 2:
 
-You need to put your solution here.
+## Zero-Shot Prompt for LinkedIn Post Generation
+
+### Prompt Design Strategy
+
+This prompt is designed for **OpenAI GPT-4** with the following goals:
+1. **Structured JSON output** - Reliable parsing for the application
+2. **Three distinct styles** - Concise Insight, Story-Based, Actionable Checklist
+3. **Persona preservation** - Maintains user's voice, tone, and guidelines
+4. **Minimal hallucination** - Explicit constraints and validation rules
+5. **Single API call** - All three posts generated in one request
+
+---
+
+### The Zero-Shot Prompt
+
+```
+SYSTEM PROMPT:
+You are an expert LinkedIn content strategist who creates authentic, engaging posts tailored to each user's unique voice. Your task is to generate 3 LinkedIn post drafts in distinct styles while strictly adhering to the user's persona configuration and content guidelines.
+
+CRITICAL RULES:
+1. Output MUST be valid JSON - no markdown, no code blocks, just pure JSON
+2. Each post MUST be LinkedIn-ready (proper formatting, emoji use, line breaks)
+3. Posts MUST differ meaningfully in style while maintaining the user's voice
+4. NEVER violate the user's do/don't guidelines
+5. NEVER fabricate facts, statistics, or quotes not provided in the input
+6. Each post should be 150-300 words (LinkedIn optimal length)
+7. Include 3-5 relevant hashtags per post
+
+---
+
+USER INPUT FORMAT (JSON):
+
+{
+  "persona": {
+    "name": "User's full name",
+    "background": "Professional background, experience, expertise areas",
+    "industry": "User's industry/domain",
+    "tone": "Preferred tone (e.g., professional, conversational, inspirational, witty)",
+    "language_style": "Writing style preferences (e.g., uses emojis, bullet points, storytelling, direct)",
+    "dos": ["List of things to do/include"],
+    "donts": ["List of things to avoid"],
+    "signature_phrases": ["Optional: phrases the user commonly uses"],
+    "target_audience": "Who the user typically writes for"
+  },
+  "topic": {
+    "subject": "The main topic/subject for the post",
+    "context": "Optional: additional context or specific angle",
+    "goal": "Optional: what the user wants to achieve (engagement, thought leadership, etc.)"
+  }
+}
+
+---
+
+OUTPUT FORMAT (JSON):
+
+{
+  "posts": [
+    {
+      "style": "concise_insight",
+      "style_description": "A focused, punchy insight that delivers value quickly",
+      "content": "The actual LinkedIn post text with proper formatting",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3"],
+      "hook": "The opening line designed to grab attention",
+      "cta": "The call-to-action if present"
+    },
+    {
+      "style": "story_based",
+      "style_description": "A narrative-driven post that uses storytelling to make the point",
+      "content": "The actual LinkedIn post text with proper formatting",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3"],
+      "hook": "The opening line designed to grab attention",
+      "cta": "The call-to-action if present"
+    },
+    {
+      "style": "actionable_checklist",
+      "style_description": "A practical, list-based post with actionable takeaways",
+      "content": "The actual LinkedIn post text with proper formatting",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3"],
+      "hook": "The opening line designed to grab attention",
+      "cta": "The call-to-action if present"
+    }
+  ],
+  "persona_adherence": {
+    "tone_match": "Brief note on how the tone matches user preferences",
+    "guidelines_followed": ["List of specific guidelines that were applied"]
+  }
+}
+
+---
+
+STYLE SPECIFICATIONS:
+
+STYLE 1 - CONCISE INSIGHT:
+- Lead with a strong, contrarian or surprising statement
+- 1-2 short paragraphs maximum
+- Focus on ONE key insight
+- End with a thought-provoking question or statement
+- Minimal emojis (0-2)
+- Punchy, direct language
+
+STYLE 2 - STORY-BASED:
+- Begin with "When I..." or a relatable scenario
+- Include a challenge/conflict and resolution
+- Weave in the topic naturally through the narrative
+- End with a lesson learned or reflection
+- More conversational tone
+- Moderate emojis (2-4)
+
+STYLE 3 - ACTIONABLE CHECKLIST:
+- Start with a promise: "X things I learned about..." or "Here's how to..."
+- Use bullet points or numbered lists
+- Each point should be specific and actionable
+- Include a "save this for later" nudge
+- Practical, value-driven
+- Moderate emojis (3-5)
+
+---
+
+VALIDATION CHECKLIST (apply before outputting):
+□ All 3 posts are meaningfully different in structure and approach
+□ User's tone preferences are reflected in all posts
+□ No "don't" items from persona are present
+□ At least 2 "do" items from persona are incorporated per post
+□ No fabricated statistics or quotes
+□ Each post is 150-300 words
+□ Hashtags are relevant and not overused
+□ Posts are ready to publish (no placeholders or brackets)
+
+Now, process the user input and generate the JSON response.
+```
+
+---
+
+### Example Usage
+
+**Input to the prompt:**
+
+```json
+{
+  "persona": {
+    "name": "Priya Sharma",
+    "background": "Product Manager at a fintech startup with 8 years experience in B2B SaaS. Previously worked at enterprise companies.",
+    "industry": "Fintech / B2B SaaS",
+    "tone": "Professional but approachable, occasionally witty",
+    "language_style": "Uses bullet points frequently, includes relevant emojis, asks questions to engage readers",
+    "dos": [
+      "Share practical lessons from experience",
+      "Use specific examples",
+      "Include actionable takeaways",
+      "Ask questions to spark discussion"
+    ],
+    "donts": [
+      "Don't use buzzwords like 'synergy', 'pivot', 'leverage'",
+      "Don't be overly promotional about my company",
+      "Don't share confidential information",
+      "Don't use more than 5 hashtags"
+    ],
+    "signature_phrases": ["Here's what I learned", "The reality is"],
+    "target_audience": "Product managers, startup founders, tech professionals"
+  },
+  "topic": {
+    "subject": "Feature prioritization in resource-constrained startups",
+    "context": "Recently had to cut 70% of our roadmap due to budget constraints",
+    "goal": "Share learnings and establish thought leadership"
+  }
+}
+```
+
+---
+
+### Expected Output
+
+```json
+{
+  "posts": [
+    {
+      "style": "concise_insight",
+      "style_description": "A focused, punchy insight that delivers value quickly",
+      "content": "The reality is: most feature roadmaps are wishlists, not strategies.\n\nLast month, we cut 70% of our roadmap. Painful? Yes. Revealing? Absolutely.\n\nWhat survived:\n→ Features tied directly to revenue\n→ Items with validated user demand\n→ Tech debt that blocked everything else\n\nWhat didn't:\n→ 'Nice-to-have' enhancements\n→ Features for hypothetical users\n→ Projects that needed 6+ months to ship\n\nConstraint breeds clarity.\n\nWhat would your roadmap look like if you could only keep 30%?",
+      "hashtags": ["ProductManagement", "Startups", "Prioritization", "ProductStrategy"],
+      "hook": "The reality is: most feature roadmaps are wishlists, not strategies.",
+      "cta": "What would your roadmap look like if you could only keep 30%?"
+    },
+    {
+      "style": "story_based",
+      "style_description": "A narrative-driven post that uses storytelling to make the point",
+      "content": "When I joined my current startup, our roadmap had 47 features.\n\n47.\n\nWe had 4 engineers.\n\nYou can imagine how that planning session went. 😅\n\nFast forward to last month: budget cuts. We had to reduce our roadmap by 70%.\n\nHere's what I learned through the process:\n\n1. The features I fought hardest for weren't always the most important ones. My attachment was emotional, not strategic.\n\n2. Saying 'no' to stakeholders got easier when I had data. 'This feature serves 3% of users' is hard to argue with.\n\n3. The team actually moved faster. Fewer context switches, clearer priorities.\n\n4. Our users didn't notice most of what we cut. They were waiting for the 2-3 things that actually mattered to them.\n\nThe constraint we feared became the clarity we needed.\n\nSometimes the best product decision isn't what to build—it's what to stop building.\n\nAnyone else experienced this 'constraint clarity'?",
+      "hashtags": ["ProductManagement", "StartupLife", "Roadmap", "Leadership"],
+      "hook": "When I joined my current startup, our roadmap had 47 features.",
+      "cta": "Anyone else experienced this 'constraint clarity'?"
+    },
+    {
+      "style": "actionable_checklist",
+      "style_description": "A practical, list-based post with actionable takeaways",
+      "content": "5 questions that saved our roadmap (and my sanity):\n\nWe recently cut 70% of our feature roadmap. Here's the framework I used to decide what stayed:\n\n✅ 1. Revenue tie\nDoes this feature directly impact revenue in the next 2 quarters?\nIf yes → Keep\nIf no/unclear → Question it\n\n✅ 2. Validated demand\nHave users explicitly asked for this? (Not assumed, not extrapolated—actually asked)\nIf yes → Keep\nIf no → Cut\n\n✅ 3. Dependency check\nDoes anything else depend on this feature?\nIf yes → Consider keeping\nIf no → Lower priority\n\n✅ 4. Effort-to-impact ratio\nCan we ship this in <4 weeks with meaningful impact?\nIf yes → Strong candidate\nIf no → Needs stronger justification\n\n✅ 5. Strategic alignment\nDoes this move our core metric?\nIf yes → Keep\nIf no → Cut\n\nThe result? A focused roadmap our team can actually deliver.\n\nSave this for your next planning session. 🔖\n\nWhich question would you add to this list?",
+      "hashtags": ["ProductManagement", "Prioritization", "Startups", "ProductStrategy", "Roadmap"],
+      "hook": "5 questions that saved our roadmap (and my sanity):",
+      "cta": "Which question would you add to this list?"
+    }
+  ],
+  "persona_adherence": {
+    "tone_match": "Professional yet approachable; used wit in story-based post; maintained practical focus throughout",
+    "guidelines_followed": [
+      "Shared practical lessons from experience",
+      "Used specific examples (47 features, 70% cut)",
+      "Included actionable takeaways (5-question framework)",
+      "Asked questions to spark discussion in all posts",
+      "Avoided buzzwords",
+      "Kept hashtags under 5 per post"
+    ]
+  }
+}
+```
+
+---
+
+### Why This Prompt Works
+
+| Criterion | How It's Addressed |
+|-----------|-------------------|
+| **Structured Output** | JSON schema with explicit field definitions |
+| **Minimal Hallucination** | Explicit rules against fabricating facts; validation checklist |
+| **Style Differentiation** | Detailed style specifications with structural requirements |
+| **Persona Preservation** | dos/donts enforcement; persona_adherence section in output |
+| **App Integration** | Clean JSON parsing; metadata fields (hook, cta) for UI display |
+| **Zero-Shot Reliability** | Comprehensive instructions eliminate need for examples in prompt |
+| **User Review Flow** | Separate posts array allows app to display drafts individually |
+
+---
+
+### Integration Notes for Application
+
+```python
+# Pseudocode for API integration
+response = openai.chat.completions.create(
+    model="gpt-4",
+    messages=[
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": json.dumps(user_input)}
+    ],
+    response_format={"type": "json_object"},  # Enforce JSON output
+    temperature=0.7  # Balance creativity with consistency
+)
+
+posts = json.loads(response.choices[0].message.content)["posts"]
+
+# Display each post to user for selection
+for i, post in enumerate(posts):
+    print(f"Style: {post['style']}")
+    print(f"Content: {post['content']}")
+    print(f"Hashtags: {post['hashtags']}")
+```
 
 ## Problem 3: **Smart DOCX Template → Bulk DOCX/PDF Generator (Proposal + Prompt)**
 
